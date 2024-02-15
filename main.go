@@ -128,12 +128,8 @@ func read() {
 		return
 	}
 
-	var phoneNumber string
-	fmt.Print("Masukkan nomor telepon user yang ingin dilihat profilnya: ")
-	fmt.Scanln(&phoneNumber)
-
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal melihat profil user:", result.Error)
 		return
@@ -148,14 +144,12 @@ func update() {
 		return
 	}
 
-	var phoneNumber, newPassword string
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
+	var newPassword string
 	fmt.Print("Masukkan password baru: ")
 	fmt.Scanln(&newPassword)
 
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal update:", result.Error)
 		return
@@ -177,12 +171,8 @@ func delete() {
 		return
 	}
 
-	var phoneNumber string
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
-
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal menghapus akun:", result.Error)
 		return
@@ -193,7 +183,7 @@ func delete() {
 		return
 	}
 
-	db.Delete(&user)
+	db.Unscoped().Delete(&user)
 	fmt.Println("Akun berhasil dihapus")
 }
 
