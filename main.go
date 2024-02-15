@@ -30,7 +30,7 @@ var loggedInUserID uint
 
 func main() {
 	var err error
-	var dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", "root", "pasword", "localhost", 3306, "project")
+	var dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", "root", "", "localhost", 3306, "project")
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
@@ -48,14 +48,6 @@ func main() {
 		fmt.Println("Menu:")
 		fmt.Println("1. Register")
 		fmt.Println("2. Login")
-		fmt.Println("3. Read Account")
-		fmt.Println("4. Update Account")
-		fmt.Println("5. Delete Account")
-		fmt.Println("6. Top-up")
-		fmt.Println("7. Transfer")
-		fmt.Println("8. History Top-up")
-		fmt.Println("9. History Transfer")
-		fmt.Println("10. Melihat profil user lain")
 		fmt.Println("0. Exit")
 		fmt.Print("Input: ")
 		fmt.Scanln(&input)
@@ -64,25 +56,13 @@ func main() {
 		case "1":
 			register()
 		case "2":
-			login()
-		case "3":
-			read()
-		case "4":
-			update()
-		case "5":
-			delete()
-		case "6":
-			topUp()
-		case "7":
-			transfer()
-		case "8":
-			historyTopUp()
-		case "9":
-			historyTransfer()
-		case "10":
-			viewProfile()
+			loggedInUserID = login()
+			if loggedInUserID != 0 {
+				displayMainMenu()
+			}
 		case "0":
-			fmt.Println("Terimakasih telah bertransaksi")
+			fmt.Println("Terimakasih telah menggunakan layanan kami.")
+			return
 		default:
 			fmt.Println("Pilihan tidak valid")
 		}
@@ -105,7 +85,7 @@ func register() {
 	fmt.Println("Berhasil mendaftar")
 }
 
-func login() {
+func login() uint {
 	var phoneNumber, password string
 	fmt.Print("Masukkan nomor telepon: ")
 	fmt.Scanln(&phoneNumber)
@@ -116,10 +96,52 @@ func login() {
 	result := db.Where("phone_number = ? AND password = ?", phoneNumber, password).First(&user)
 	if result.Error != nil {
 		fmt.Println("Gagal login:", result.Error)
-		return
+		return 0
 	}
 	fmt.Println("Berhasil login")
-	loggedInUserID = user.ID
+	return user.ID
+}
+
+func displayMainMenu() {
+	var input string
+	for input != "0" {
+		fmt.Println("\nMenu Utama:")
+		fmt.Println("1. Read Account")
+		fmt.Println("2. Update Account")
+		fmt.Println("3. Delete Account")
+		fmt.Println("4. Top-up")
+		fmt.Println("5. Transfer")
+		fmt.Println("6. History Top-up")
+		fmt.Println("7. History Transfer")
+		fmt.Println("8. Melihat profil user lain")
+		fmt.Println("0. Logout")
+		fmt.Print("Input: ")
+		fmt.Scanln(&input)
+
+		switch input {
+		case "1":
+			read()
+		case "2":
+			update()
+		case "3":
+			delete()
+		case "4":
+			topUp()
+		case "5":
+			transfer()
+		case "6":
+			historyTopUp()
+		case "7":
+			historyTransfer()
+		case "8":
+			viewProfile()
+		case "0":
+			fmt.Println("Anda berhasil logout.")
+			return
+		default:
+			fmt.Println("Pilihan tidak valid")
+		}
+	}
 }
 
 func read() {
@@ -128,8 +150,12 @@ func read() {
 		return
 	}
 
+	var phoneNumber string
+	fmt.Print("Masukkan nomor telepon user yang ingin dilihat profilnya: ")
+	fmt.Scanln(&phoneNumber)
+
 	var user User
-	result := db.First(&user, loggedInUserID)
+	result := db.Where("phone_number = ?", phoneNumber).First(&user)
 	if result.Error != nil {
 		fmt.Println("Gagal melihat profil user:", result.Error)
 		return
@@ -144,12 +170,14 @@ func update() {
 		return
 	}
 
-	var newPassword string
+	var phoneNumber, newPassword string
+	fmt.Print("Masukkan nomor telepon: ")
+	fmt.Scanln(&phoneNumber)
 	fmt.Print("Masukkan password baru: ")
 	fmt.Scanln(&newPassword)
 
 	var user User
-	result := db.First(&user, loggedInUserID)
+	result := db.Where("phone_number = ?", phoneNumber).First(&user)
 	if result.Error != nil {
 		fmt.Println("Gagal update:", result.Error)
 		return
@@ -171,8 +199,12 @@ func delete() {
 		return
 	}
 
+	var phoneNumber string
+	fmt.Print("Masukkan nomor telepon: ")
+	fmt.Scanln(&phoneNumber)
+
 	var user User
-	result := db.First(&user, loggedInUserID)
+	result := db.Where("phone_number = ?", phoneNumber).First(&user)
 	if result.Error != nil {
 		fmt.Println("Gagal menghapus akun:", result.Error)
 		return
@@ -183,7 +215,7 @@ func delete() {
 		return
 	}
 
-	db.Unscoped().Delete(&user)
+	db.Delete(&user)
 	fmt.Println("Akun berhasil dihapus")
 }
 
