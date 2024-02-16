@@ -20,7 +20,8 @@ type User struct {
 type Transaction struct {
 	gorm.Model
 	UserID      uint
-	PhoneNumber string
+	SenderPhone string // Nomor telepon pengirim
+	PhoneNumber string // Nomor telepon penerima
 	Amount      float64
 	Type        string // "top-up" or "transfer"
 }
@@ -30,7 +31,7 @@ var loggedInUserID uint
 
 func main() {
 	var err error
-	var dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", "root", "", "localhost", 3306, "project")
+	var dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local", "root", "pasword", "localhost", 3306, "project")
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
@@ -150,12 +151,8 @@ func read() {
 		return
 	}
 
-	var phoneNumber string
-	fmt.Print("Masukkan nomor telepon user yang ingin dilihat profilnya: ")
-	fmt.Scanln(&phoneNumber)
-
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal melihat profil user:", result.Error)
 		return
@@ -170,14 +167,12 @@ func update() {
 		return
 	}
 
-	var phoneNumber, newPassword string
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
+	var newPassword string
 	fmt.Print("Masukkan password baru: ")
 	fmt.Scanln(&newPassword)
 
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal update:", result.Error)
 		return
@@ -199,12 +194,8 @@ func delete() {
 		return
 	}
 
-	var phoneNumber string
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
-
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal menghapus akun:", result.Error)
 		return
@@ -215,20 +206,17 @@ func delete() {
 		return
 	}
 
-	db.Delete(&user)
+	db.Unscoped().Delete(&user)
 	fmt.Println("Akun berhasil dihapus")
 }
 
 func topUp() {
-	var phoneNumber string
 	var amount float64
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
 	fmt.Print("Masukkan jumlah top-up: ")
 	fmt.Scanln(&amount)
 
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal top-up:", result.Error)
 		return
@@ -237,23 +225,21 @@ func topUp() {
 	user.Balance += amount
 	db.Save(&user)
 
-	transaction := Transaction{UserID: user.ID, PhoneNumber: phoneNumber, Amount: amount, Type: "top-up"}
+	transaction := Transaction{UserID: user.ID, PhoneNumber: user.PhoneNumber, Amount: amount, Type: "top-up"}
 	db.Create(&transaction)
 	fmt.Println("Top-up berhasil")
 }
 
 func transfer() {
-	var senderPhoneNumber, receiverPhoneNumber string
+	var receiverPhoneNumber string
 	var amount float64
-	fmt.Print("Masukkan nomor telepon pengirim: ")
-	fmt.Scanln(&senderPhoneNumber)
 	fmt.Print("Masukkan nomor telepon penerima: ")
 	fmt.Scanln(&receiverPhoneNumber)
 	fmt.Print("Masukkan jumlah transfer: ")
 	fmt.Scanln(&amount)
 
 	var sender, receiver User
-	result := db.Where("phone_number = ?", senderPhoneNumber).First(&sender)
+	result := db.First(&sender, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal transfer:", result.Error)
 		return
@@ -275,20 +261,17 @@ func transfer() {
 	db.Save(&sender)
 	db.Save(&receiver)
 
-	senderTransaction := Transaction{UserID: sender.ID, PhoneNumber: senderPhoneNumber, Amount: -amount, Type: "transfer"}
-	receiverTransaction := Transaction{UserID: receiver.ID, PhoneNumber: receiverPhoneNumber, Amount: amount, Type: "transfer"}
+	senderTransaction := Transaction{UserID: sender.ID, SenderPhone: sender.PhoneNumber, PhoneNumber: receiverPhoneNumber, Amount: -amount, Type: "transfer"}
+	receiverTransaction := Transaction{UserID: receiver.ID, SenderPhone: sender.PhoneNumber, PhoneNumber: receiverPhoneNumber, Amount: amount, Type: "transfer"}
 	db.Create(&senderTransaction)
 	db.Create(&receiverTransaction)
 	fmt.Println("Transfer berhasil")
 }
 
 func historyTopUp() {
-	var phoneNumber string
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
 
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal menampilkan history top-up:", result.Error)
 		return
@@ -304,12 +287,8 @@ func historyTopUp() {
 }
 
 func historyTransfer() {
-	var phoneNumber string
-	fmt.Print("Masukkan nomor telepon: ")
-	fmt.Scanln(&phoneNumber)
-
 	var user User
-	result := db.Where("phone_number = ?", phoneNumber).First(&user)
+	result := db.First(&user, loggedInUserID)
 	if result.Error != nil {
 		fmt.Println("Gagal menampilkan history transfer:", result.Error)
 		return
@@ -320,7 +299,7 @@ func historyTransfer() {
 
 	fmt.Println("History Transfer:")
 	for _, transaction := range transactions {
-		fmt.Printf("ID: %d, Nomor Telepon: %s, Jumlah: %f\n", transaction.ID, transaction.PhoneNumber, transaction.Amount)
+		fmt.Printf("ID: %d, Nomor Telepon Pengirim: %s, Nomor Telepon Penerima: %s, Jumlah: %f\n", transaction.ID, transaction.SenderPhone, transaction.PhoneNumber, transaction.Amount)
 	}
 }
 
